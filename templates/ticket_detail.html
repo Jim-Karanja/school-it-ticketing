@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Ticket #{{ ticket.id }} - School IT Helpdesk{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="ticket-detail-header">
+        <div class="header-left">
+            <h2>Ticket #{{ ticket.id }}</h2>
+            <div class="ticket-status-badge status-{{ ticket.status.lower().replace(' ', '-') }}">
+                {{ ticket.status }}
+            </div>
+        </div>
+        <div class="header-right">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">← Back to Dashboard</a>
+            {% if ticket.remote_access_requested and ticket.status != 'Closed' %}
+                <a href="{{ url_for('start_remote_session', ticket_id=ticket.id) }}" class="btn btn-remote">🖥️ Start Remote Session</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="ticket-detail-content">
+        <div class="ticket-info-section">
+            <h3>Ticket Information</h3>
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>Submitted by:</label>
+                    <span>{{ ticket.user_name }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Email:</label>
+                    <span><a href="mailto:{{ ticket.user_email }}">{{ ticket.user_email }}</a></span>
+                </div>
+                <div class="info-item">
+                    <label>PC Location:</label>
+                    <span>{{ ticket.pc_location }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Remote Access:</label>
+                    <span>
+                        {% if ticket.remote_access_requested %}
+                            <span class="badge badge-success">✓ Authorized</span>
+                        {% else %}
+                            <span class="badge badge-neutral">Not Requested</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <label>Created:</label>
+                    <span>{{ ticket.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Last Updated:</label>
+                    <span>{{ ticket.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                </div>
+            </div>
+
+            <div class="problem-description">
+                <h4>Problem Description:</h4>
+                <div class="description-content">
+                    {{ ticket.problem_description | replace('\n', '<br>') | safe }}
+                </div>
+            </div>
+        </div>
+
+        <div class="update-section">
+            <h3>Update Ticket</h3>
+            <form method="POST" action="{{ url_for('update_ticket', ticket_id=ticket.id) }}" class="update-form">
+                {{ form.hidden_tag() }}
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        {{ form.status.label(class="form-label") }}
+                        {{ form.status(class="form-select") }}
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    {{ form.notes.label(class="form-label") }}
+                    <p class="field-help">Add notes about your actions, findings, or next steps. These will be timestamped and added to the ticket history.</p>
+                    {{ form.notes(class="form-textarea", rows="4", placeholder="e.g., Checked hardware connections. Power supply appears faulty. Ordering replacement part.") }}
+                </div>
+
+                <div class="form-group">
+                    {{ form.submit(class="btn btn-primary") }}
+                </div>
+            </form>
+        </div>
+
+        {% if ticket.notes %}
+            <div class="notes-section">
+                <h3>Ticket History & Notes</h3>
+                <div class="notes-content">
+                    {{ ticket.notes | replace('\n', '<br>') | safe }}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="action-buttons">
+        {% if ticket.status != 'Closed' %}
+            <form method="POST" action="{{ url_for('update_ticket', ticket_id=ticket.id) }}" style="display: inline;">
+                {{ form.hidden_tag() }}
+                <input type="hidden" name="status" value="Closed">
+                <input type="hidden" name="notes" value="Ticket resolved and closed.">
+                <button type="submit" class="btn btn-success" onclick="return confirm('Are you sure you want to close this ticket?')">
+                    ✓ Close Ticket
+                </button>
+            </form>
+        {% endif %}
+        
+        {% if ticket.remote_access_requested %}
+            <a href="mailto:{{ ticket.user_email }}?subject=IT Support - Remote Access Instructions for Ticket #{{ ticket.id }}&body=Hi {{ ticket.user_name }},%0D%0A%0D%0AWe're ready to help you with your IT issue remotely.%0D%0A%0D%0APlease follow these steps:%0D%0A1. Download and install AnyDesk from https://anydesk.com%0D%0A2. Open AnyDesk and share your ID number with us%0D%0A3. We'll connect to help resolve your issue%0D%0A%0D%0AThanks,%0D%0AIT Support Team" 
+               class="btn btn-info">
+                📧 Email Remote Instructions
+            </a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

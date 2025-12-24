@@ -1,0 +1,572 @@
+{% extends "base.html" %}
+
+{% block title %}Remote Desktop Viewer - Ticket #{{ session.ticket_id }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="remote-viewer-header">
+        <h2>🖥️ Remote Desktop Viewer</h2>
+        <div class="session-info">
+            <span class="session-id">Session: {{ session.session_id[:8] }}...</span>
+            <span class="user-name">User: {{ session.user_name }}</span>
+            <span class="ticket-id">Ticket: #{{ session.ticket_id }}</span>
+        </div>
+        <div class="connection-status">
+            <span id="connection-status" class="status-disconnected">Connecting...</span>
+        </div>
+    </div>
+
+    <div class="remote-viewer-controls">
+        <button id="start-session" class="btn btn-success">Start Remote Session</button>
+        <button id="end-session" class="btn btn-danger" style="display: none;">End Session</button>
+        <button id="screenshot" class="btn btn-info">Take Screenshot</button>
+        <div class="quality-controls">
+            <label for="quality-slider">Quality:</label>
+            <input type="range" id="quality-slider" min="30" max="100" value="70" step="10">
+            <span id="quality-value">70%</span>
+        </div>
+        <div class="fps-controls">
+            <label for="fps-slider">FPS:</label>
+            <input type="range" id="fps-slider" min="5" max="30" value="15" step="5">
+            <span id="fps-value">15</span>
+        </div>
+    </div>
+
+    <div class="remote-viewer-container">
+        <div class="screen-container">
+            <canvas id="remote-screen" width="1920" height="1080"></canvas>
+            <div id="loading-overlay" class="loading-overlay">
+                <div class="loading-spinner"></div>
+                <p>Waiting for user to connect...</p>
+            </div>
+        </div>
+        
+        <div class="control-panel">
+            <div class="input-controls">
+                <h4>Remote Control</h4>
+                <div class="control-buttons">
+                    <button id="ctrl-alt-del" class="btn btn-warning btn-sm">Ctrl+Alt+Del</button>
+                    <button id="alt-tab" class="btn btn-secondary btn-sm">Alt+Tab</button>
+                    <button id="win-key" class="btn btn-secondary btn-sm">Windows Key</button>
+                    <button id="escape" class="btn btn-secondary btn-sm">Escape</button>
+                </div>
+                
+                <div class="text-input-section">
+                    <label for="text-input">Send Text:</label>
+                    <input type="text" id="text-input" placeholder="Type text to send...">
+                    <button id="send-text" class="btn btn-primary btn-sm">Send</button>
+                </div>
+            </div>
+            
+            <div class="session-stats">
+                <h4>Session Statistics</h4>
+                <div class="stat-item">
+                    <span class="stat-label">Duration:</span>
+                    <span id="session-duration">00:00:00</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">FPS:</span>
+                    <span id="actual-fps">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Latency:</span>
+                    <span id="latency">0ms</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+<script>
+// Remote Desktop Viewer JavaScript
+class RemoteDesktopViewer {
+    constructor() {
+        this.socket = io();
+        this.sessionId = '{{ session.session_id }}';
+        this.token = '{{ session.it_token }}';
+        this.canvas = document.getElementById('remote-screen');
+        this.ctx = this.canvas.getContext('2d');
+        this.connected = false;
+        this.sessionActive = false;
+        this.lastFrameTime = Date.now();
+        this.frameCount = 0;
+        this.sessionStartTime = null;
+        
+        this.initializeEventListeners();
+        this.connectToSession();
+        this.startStatsUpdater();
+    }
+    
+    initializeEventListeners() {
+        // Socket events
+        this.socket.on('connect', () => {
+            console.log('Connected to server');
+            this.updateConnectionStatus('Connected', 'status-connected');
+        });
+        
+        this.socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+            this.updateConnectionStatus('Disconnected', 'status-disconnected');
+            this.connected = false;
+        });
+        
+        this.socket.on('session_joined', (data) => {
+            console.log('Joined remote session:', data);
+            this.connected = true;
+            this.updateConnectionStatus('Session Active', 'status-active');
+            this.hideLoadingOverlay();
+        });
+        
+        this.socket.on('user_connected', () => {
+            console.log('User connected to session');
+            this.startScreenCapture();
+        });
+        
+        this.socket.on('screen_frame', (data) => {
+            this.displayFrame(data);
+        });
+        
+        this.socket.on('error', (data) => {
+            console.error('Socket error:', data);
+            alert('Error: ' + data.message);
+        });
+        
+        // Canvas mouse events
+        this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+        this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+        this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+        this.canvas.addEventListener('wheel', (e) => this.handleMouseWheel(e));
+        this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+        
+        // Keyboard events
+        document.addEventListener('keydown', (e) => this.handleKeyDown(e));
+        document.addEventListener('keyup', (e) => this.handleKeyUp(e));
+        
+        // Control buttons
+        document.getElementById('start-session').onclick = () => this.startSession();
+        document.getElementById('end-session').onclick = () => this.endSession();
+        document.getElementById('screenshot').onclick = () => this.takeScreenshot();
+        document.getElementById('send-text').onclick = () => this.sendText();
+        document.getElementById('text-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.sendText();
+        });
+        
+        // Keyboard shortcuts
+        document.getElementById('ctrl-alt-del').onclick = () => this.sendKeyCombo(['ctrl', 'alt', 'delete']);
+        document.getElementById('alt-tab').onclick = () => this.sendKeyCombo(['alt', 'tab']);
+        document.getElementById('win-key').onclick = () => this.sendKey('win');
+        document.getElementById('escape').onclick = () => this.sendKey('Escape');
+        
+        // Quality and FPS sliders
+        document.getElementById('quality-slider').addEventListener('input', (e) => {
+            document.getElementById('quality-value').textContent = e.target.value + '%';
+            this.updateQuality(parseInt(e.target.value));
+        });
+        
+        document.getElementById('fps-slider').addEventListener('input', (e) => {
+            document.getElementById('fps-value').textContent = e.target.value;
+            this.updateFPS(parseInt(e.target.value));
+        });
+    }
+    
+    connectToSession() {
+        this.socket.emit('join_session', {
+            session_id: this.sessionId,
+            token: this.token,
+            type: 'it_staff'
+        });
+    }
+    
+    startSession() {
+        this.sessionActive = true;
+        this.sessionStartTime = Date.now();
+        document.getElementById('start-session').style.display = 'none';
+        document.getElementById('end-session').style.display = 'inline-block';
+        this.requestFrame();
+    }
+    
+    endSession() {
+        this.sessionActive = false;
+        document.getElementById('start-session').style.display = 'inline-block';
+        document.getElementById('end-session').style.display = 'none';
+        this.socket.disconnect();
+        window.location.href = '/dashboard';
+    }
+    
+    startScreenCapture() {
+        if (this.sessionActive) {
+            this.requestFrame();
+        }
+    }
+    
+    requestFrame() {
+        if (this.sessionActive && this.connected) {
+            this.socket.emit('request_screen_frame');
+            setTimeout(() => this.requestFrame(), 1000 / 15); // 15 FPS
+        }
+    }
+    
+    displayFrame(frameData) {
+        const img = new Image();
+        img.onload = () => {
+            // Resize canvas to match frame
+            this.canvas.width = frameData.width;
+            this.canvas.height = frameData.height;
+            
+            // Draw frame
+            this.ctx.drawImage(img, 0, 0);
+            
+            // Update FPS counter
+            this.frameCount++;
+            const now = Date.now();
+            if (now - this.lastFrameTime >= 1000) {
+                document.getElementById('actual-fps').textContent = this.frameCount;
+                this.frameCount = 0;
+                this.lastFrameTime = now;
+            }
+        };
+        img.src = 'data:image/jpeg;base64,' + frameData.image;
+    }
+    
+    handleMouseMove(e) {
+        if (!this.sessionActive) return;
+        
+        const rect = this.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        this.socket.emit('mouse_move', {
+            session_id: this.sessionId,
+            x: x,
+            y: y,
+            screen_width: this.canvas.width,
+            screen_height: this.canvas.height
+        });
+    }
+    
+    handleMouseDown(e) {
+        if (!this.sessionActive) return;
+        
+        const rect = this.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const button = e.button === 0 ? 'left' : (e.button === 2 ? 'right' : 'middle');
+        
+        this.socket.emit('mouse_click', {
+            session_id: this.sessionId,
+            x: x,
+            y: y,
+            screen_width: this.canvas.width,
+            screen_height: this.canvas.height,
+            button: button,
+            click_type: 'down'
+        });
+    }
+    
+    handleMouseUp(e) {
+        if (!this.sessionActive) return;
+        
+        const rect = this.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const button = e.button === 0 ? 'left' : (e.button === 2 ? 'right' : 'middle');
+        
+        this.socket.emit('mouse_click', {
+            session_id: this.sessionId,
+            x: x,
+            y: y,
+            screen_width: this.canvas.width,
+            screen_height: this.canvas.height,
+            button: button,
+            click_type: 'up'
+        });
+    }
+    
+    handleMouseWheel(e) {
+        if (!this.sessionActive) return;
+        
+        e.preventDefault();
+        const rect = this.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        this.socket.emit('mouse_scroll', {
+            session_id: this.sessionId,
+            x: x,
+            y: y,
+            screen_width: this.canvas.width,
+            screen_height: this.canvas.height,
+            delta: -e.deltaY / 100
+        });
+    }
+    
+    handleKeyDown(e) {
+        if (!this.sessionActive) return;
+        
+        // Prevent browser shortcuts
+        if (e.ctrlKey && (e.key === 'r' || e.key === 'w' || e.key === 't')) {
+            e.preventDefault();
+        }
+        
+        this.socket.emit('key_press', {
+            session_id: this.sessionId,
+            key: e.key,
+            action: 'down'
+        });
+    }
+    
+    handleKeyUp(e) {
+        if (!this.sessionActive) return;
+        
+        this.socket.emit('key_press', {
+            session_id: this.sessionId,
+            key: e.key,
+            action: 'up'
+        });
+    }
+    
+    sendKey(key) {
+        if (!this.sessionActive) return;
+        
+        this.socket.emit('key_press', {
+            session_id: this.sessionId,
+            key: key,
+            action: 'press'
+        });
+    }
+    
+    sendKeyCombo(keys) {
+        if (!this.sessionActive) return;
+        
+        this.socket.emit('key_combination', {
+            session_id: this.sessionId,
+            keys: keys
+        });
+    }
+    
+    sendText() {
+        if (!this.sessionActive) return;
+        
+        const textInput = document.getElementById('text-input');
+        const text = textInput.value.trim();
+        if (text) {
+            this.socket.emit('text_input', {
+                session_id: this.sessionId,
+                text: text
+            });
+            textInput.value = '';
+        }
+    }
+    
+    takeScreenshot() {
+        const link = document.createElement('a');
+        link.download = `ticket-${this.sessionId}-${Date.now()}.png`;
+        link.href = this.canvas.toDataURL();
+        link.click();
+    }
+    
+    updateConnectionStatus(status, className) {
+        const statusElement = document.getElementById('connection-status');
+        statusElement.textContent = status;
+        statusElement.className = className;
+    }
+    
+    hideLoadingOverlay() {
+        document.getElementById('loading-overlay').style.display = 'none';
+    }
+    
+    updateQuality(quality) {
+        // This would typically send a message to update capture quality
+        console.log('Quality updated to:', quality);
+    }
+    
+    updateFPS(fps) {
+        // This would typically send a message to update capture FPS
+        console.log('FPS updated to:', fps);
+    }
+    
+    startStatsUpdater() {
+        setInterval(() => {
+            if (this.sessionStartTime) {
+                const duration = Date.now() - this.sessionStartTime;
+                const hours = Math.floor(duration / 3600000);
+                const minutes = Math.floor((duration % 3600000) / 60000);
+                const seconds = Math.floor((duration % 60000) / 1000);
+                document.getElementById('session-duration').textContent = 
+                    `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+        }, 1000);
+    }
+}
+
+// Initialize the remote desktop viewer when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    new RemoteDesktopViewer();
+});
+</script>
+
+<style>
+.remote-viewer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.session-info {
+    display: flex;
+    gap: 1rem;
+    font-size: 14px;
+}
+
+.session-info span {
+    background: #e9ecef;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.connection-status {
+    font-weight: 600;
+}
+
+.status-connected { color: #28a745; }
+.status-active { color: #007bff; }
+.status-disconnected { color: #dc3545; }
+
+.remote-viewer-controls {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.quality-controls, .fps-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 14px;
+}
+
+.remote-viewer-container {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 1rem;
+    height: calc(100vh - 300px);
+}
+
+.screen-container {
+    position: relative;
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#remote-screen {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    cursor: crosshair;
+}
+
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #333;
+    border-top: 4px solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.control-panel {
+    background: white;
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow-y: auto;
+}
+
+.input-controls, .session-stats {
+    margin-bottom: 1.5rem;
+}
+
+.input-controls h4, .session-stats h4 {
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+}
+
+.control-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.text-input-section {
+    margin-top: 1rem;
+}
+
+.text-input-section input {
+    width: 100%;
+    margin: 0.5rem 0;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-size: 14px;
+}
+
+.stat-label {
+    color: #6c757d;
+}
+
+@media (max-width: 768px) {
+    .remote-viewer-container {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr auto;
+    }
+    
+    .remote-viewer-controls {
+        flex-wrap: wrap;
+    }
+    
+    .control-panel {
+        max-height: 300px;
+    }
+}
+</style>
+{% endblock %}

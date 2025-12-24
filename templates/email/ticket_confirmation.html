@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>IT Ticket Confirmation</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #007bff; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; background-color: #f8f9fa; }
+        .ticket-info { background-color: white; padding: 15px; margin: 15px 0; border-left: 4px solid #007bff; }
+        .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+        .btn { background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎓 School IT Helpdesk</h1>
+            <h2>Ticket Confirmation</h2>
+        </div>
+        
+        <div class="content">
+            <p>Hello {{ ticket.user_name }},</p>
+            
+            <p>Thank you for submitting an IT support request. Your ticket has been received and assigned the following details:</p>
+            
+            <div class="ticket-info">
+                <h3>Ticket #{{ ticket.id }}</h3>
+                <p><strong>Your Name:</strong> {{ ticket.user_name }}</p>
+                <p><strong>Email:</strong> {{ ticket.user_email }}</p>
+                <p><strong>PC Location:</strong> {{ ticket.pc_location }}</p>
+                <p><strong>Problem Description:</strong><br>{{ ticket.problem_description }}</p>
+                <p><strong>Remote Access Authorized:</strong> {% if ticket.remote_access_requested %}Yes{% else %}No{% endif %}</p>
+                <p><strong>Status:</strong> {{ ticket.status }}</p>
+                <p><strong>Submitted:</strong> {{ ticket.created_at.strftime('%Y-%m-%d at %H:%M') }}</p>
+            </div>
+            
+            <p><strong>What happens next?</strong></p>
+            <ul>
+                <li>Our IT team has been notified of your request</li>
+                <li>You will receive email updates when the status of your ticket changes</li>
+                <li>{% if ticket.remote_access_requested %}Since you authorized remote access, we may contact you to set up a remote session to help resolve your issue{% else %}An IT technician will follow up with you soon{% endif %}</li>
+            </ul>
+            
+            <p>If you have any questions about your ticket, please keep this email for reference and include your ticket number (#{{ ticket.id }}) in any communications.</p>
+        </div>
+        
+        <div class="footer">
+            <p>School IT Department<br>
+            📧 it-support@school.edu | 📞 (555) 123-4567<br>
+            Office Hours: Monday-Friday, 8:00 AM - 4:00 PM</p>
+        </div>
+    </div>
+</body>
+</html>

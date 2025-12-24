@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+
+{% block title %}Remote Session Setup - Ticket #{{ ticket.id }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="remote-session-header">
+        <h2>Remote Desktop Session</h2>
+        <p>Session created for Ticket #{{ ticket.id }} - {{ ticket.user_name }}</p>
+    </div>
+
+    <div class="session-info-card">
+        <h3>Session Details</h3>
+        <div class="session-details">
+            <div class="detail-item">
+                <label>Session ID:</label>
+                <span class="session-id">{{ session.session_id }}</span>
+            </div>
+            <div class="detail-item">
+                <label>IT Staff:</label>
+                <span>{{ session.it_staff_name }}</span>
+            </div>
+            <div class="detail-item">
+                <label>Status:</label>
+                <span class="status-badge status-{{ session.status }}">{{ session.status.title() }}</span>
+            </div>
+            <div class="detail-item">
+                <label>Created:</label>
+                <span>{{ session.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="connection-instructions">
+        <h3>Connection Instructions</h3>
+        <div class="instruction-box">
+            <h4>For the User ({{ ticket.user_name }}):</h4>
+            <ol>
+                <li>Share this URL with the user:
+                    <div class="url-box">
+                        <input type="text" readonly value="{{ request.url_root }}remote_client/{{ session.session_id }}/{{ session.user_token }}" class="url-input" id="user-url">
+                        <button onclick="copyToClipboard('user-url')" class="btn btn-copy">Copy</button>
+                    </div>
+                </li>
+                <li>The user will need to visit this URL to start screen sharing</li>
+                <li>Once connected, you can control their desktop remotely</li>
+            </ol>
+        </div>
+
+        <div class="instruction-box">
+            <h4>For IT Staff (You):</h4>
+            <ol>
+                <li>Use this URL to view and control the user's desktop:
+                    <div class="url-box">
+                        <input type="text" readonly value="{{ request.url_root }}remote_viewer/{{ session.session_id }}/{{ session.it_token }}" class="url-input" id="staff-url">
+                        <button onclick="copyToClipboard('staff-url')" class="btn btn-copy">Copy</button>
+                    </div>
+                </li>
+                <li>Wait for the user to connect first</li>
+                <li>Both connections must be active for remote control to work</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="session-actions">
+        <a href="{{ url_for('remote_viewer', session_id=session.session_id, token=session.it_token) }}" 
+           class="btn btn-primary btn-large" target="_blank">
+            🖥️ Start Remote Viewing
+        </a>
+        
+        <a href="mailto:{{ ticket.user_email }}?subject=Remote Support Session - Ticket #{{ ticket.id }}&body=Hi {{ ticket.user_name }},%0D%0A%0D%0AWe're ready to help you remotely with ticket #{{ ticket.id }}.%0D%0A%0D%0APlease click this link to start the remote session:%0D%0A{{ request.url_root }}remote_client/{{ session.session_id }}/{{ session.user_token }}%0D%0A%0D%0AOnce you click the link, we'll be able to see and control your desktop to help resolve the issue.%0D%0A%0D%0AThanks,%0D%0AIT Support Team" 
+           class="btn btn-info">
+            📧 Email Instructions to User
+        </a>
+        
+        <a href="{{ url_for('view_ticket', ticket_id=ticket.id) }}" class="btn btn-secondary">
+            ← Back to Ticket
+        </a>
+    </div>
+
+    <div class="session-status">
+        <h3>Session Status</h3>
+        <div id="connection-status">
+            <p>Waiting for user connection...</p>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyToClipboard(elementId) {
+    const element = document.getElementById(elementId);
+    element.select();
+    document.execCommand('copy');
+    
+    // Show feedback
+    const button = element.nextElementSibling;
+    const originalText = button.innerText;
+    button.innerText = 'Copied!';
+    setTimeout(() => {
+        button.innerText = originalText;
+    }, 2000);
+}
+
+// Auto-refresh session status
+setInterval(function() {
+    fetch('/api/remote_sessions')
+        .then(response => response.json())
+        .then(data => {
+            const sessionInfo = data.sessions.find(s => s.session_id === '{{ session.session_id }}');
+            if (sessionInfo) {
+                document.getElementById('connection-status').innerHTML = 
+                    `<p>User Connected: ${sessionInfo.user_connected ? 'Yes' : 'No'}</p>
+                     <p>IT Staff Connected: ${sessionInfo.it_staff_connected ? 'Yes' : 'No'}</p>
+                     <p>Status: ${sessionInfo.status}</p>`;
+            }
+        })
+        .catch(error => console.log('Status check failed:', error));
+}, 5000);
+</script>
+
+<style>
+.remote-session-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    padding: 1rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 8px;
+}
+
+.session-info-card {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.session-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.detail-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.detail-item label {
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    color: #666;
+}
+
+.session-id {
+    font-family: monospace;
+    background: #e9ecef;
+    padding: 0.5rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+.instruction-box {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.instruction-box h4 {
+    color: #495057;
+    margin-bottom: 1rem;
+}
+
+.url-box {
+    display: flex;
+    margin: 0.5rem 0;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.url-input {
+    flex: 1;
+    padding: 0.5rem;
+    border: none;
+    background: #f8f9fa;
+    font-family: monospace;
+    font-size: 0.9em;
+}
+
+.btn-copy {
+    padding: 0.5rem 1rem;
+    background: #007bff;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-copy:hover {
+    background: #0056b3;
+}
+
+.session-actions {
+    display: flex;
+    gap: 1rem;
+    margin: 2rem 0;
+    flex-wrap: wrap;
+}
+
+.btn-large {
+    padding: 1rem 2rem;
+    font-size: 1.1em;
+}
+
+.session-status {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1.5rem;
+}
+
+.status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.875em;
+    font-weight: 500;
+}
+
+.status-pending {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status-active {
+    background: #d4edda;
+    color: #155724;
+}
+</style>
+{% endblock %}

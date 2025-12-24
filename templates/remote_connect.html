@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Remote Connect - Ticket #{{ ticket.id }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="remote-connect-header">
+        <h2>Remote Desktop Connection</h2>
+        <p>Ticket #{{ ticket.id }} - {{ ticket.user_name }} ({{ ticket.pc_location }})</p>
+    </div>
+
+    <div class="remote-connect-content">
+        <div class="user-instructions">
+            <h3>Instructions for {{ ticket.user_name }}:</h3>
+            <div class="instruction-steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h4>Download and Install AnyDesk</h4>
+                        <p>If you don't already have AnyDesk installed, download it from: 
+                           <a href="https://anydesk.com/en/downloads" target="_blank" class="external-link">https://anydesk.com/en/downloads</a>
+                        </p>
+                        <p>Install the software and open it.</p>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h4>Get Your AnyDesk ID</h4>
+                        <p>When you open AnyDesk, you'll see a 9-digit number (your AnyDesk ID) in the "This Desk" section.</p>
+                        <p>It will look something like: <code>123 456 789</code></p>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h4>Share Your ID</h4>
+                        <p>Contact the IT staff member working on your ticket and provide your AnyDesk ID.</p>
+                        <p>You can email them at: <a href="mailto:{{ ticket.user_email }}">{{ ticket.user_email }}</a></p>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h4>Accept the Connection</h4>
+                        <p>When IT staff tries to connect, you'll see a popup asking for permission. Click "Accept" to allow the connection.</p>
+                        <p><strong>Note:</strong> Only accept connections from verified IT staff members.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="it-staff-section">
+            <h3>IT Staff Instructions:</h3>
+            <div class="it-instructions">
+                <div class="instruction-box">
+                    <h4>📞 Contact the User</h4>
+                    <p>Contact <strong>{{ ticket.user_name }}</strong> to coordinate the remote session:</p>
+                    <ul>
+                        <li>Email: <a href="mailto:{{ ticket.user_email }}">{{ ticket.user_email }}</a></li>
+                        <li>Phone: Check school directory or contact main office</li>
+                    </ul>
+                </div>
+
+                <div class="instruction-box">
+                    <h4>🖥️ Remote Desktop Steps</h4>
+                    <ol>
+                        <li>Ensure the user has AnyDesk installed and running</li>
+                        <li>Get the user's AnyDesk ID (9-digit number)</li>
+                        <li>Open AnyDesk on your IT workstation</li>
+                        <li>Enter the user's ID in the "Remote Desk" field</li>
+                        <li>Click "Connect" and wait for user to accept</li>
+                    </ol>
+                </div>
+
+                <div class="instruction-box">
+                    <h4>✅ After the Session</h4>
+                    <ul>
+                        <li>Document what was done in the ticket notes</li>
+                        <li>Update the ticket status appropriately</li>
+                        <li>If resolved, close the ticket</li>
+                        <li>If more work is needed, set status to "On Hold" or "In Progress"</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="quick-email-section">
+                <h4>Quick Email Template</h4>
+                <a href="mailto:{{ ticket.user_email }}?subject=IT Support - Remote Access for Ticket #{{ ticket.id }}&body=Hi {{ ticket.user_name }},%0D%0A%0D%0AI'm ready to help you with your IT issue remotely.%0D%0A%0D%0APlease:%0D%0A1. Open AnyDesk on your computer%0D%0A2. Share your AnyDesk ID number with me%0D%0A3. I'll connect to help resolve the issue%0D%0A%0D%0AIf you need help installing AnyDesk, visit: https://anydesk.com%0D%0A%0D%0AThanks,%0D%0A{{ session.username }}%0D%0AIT Support Team" 
+                   class="btn btn-info">
+                    📧 Send Connection Instructions
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="back-to-ticket">
+        <a href="{{ url_for('view_ticket', ticket_id=ticket.id) }}" class="btn btn-secondary">← Back to Ticket Details</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,21 @@
+# Original dependencies
+Flask==2.3.3
+Flask-SQLAlchemy==3.0.5
+Flask-Mail==0.9.1
+Flask-WTF==1.2.1
+WTForms==3.1.0
+email-validator==2.1.0
+python-dotenv==1.0.0
+Werkzeug==2.3.7
+
+# Remote Desktop Dependencies
+Flask-SocketIO==5.3.6
+python-socketio==5.10.0
+opencv-python==4.8.1.78
+Pillow==10.1.0
+numpy==1.26.2
+pyautogui==0.9.54
+keyboard==0.13.5
+mouse==0.7.1
+cryptography>=41.0.8
+psutil>=5.9.6

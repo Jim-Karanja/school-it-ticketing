@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>IT Ticket Status Update</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #17a2b8; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; background-color: #f8f9fa; }
+        .ticket-info { background-color: white; padding: 15px; margin: 15px 0; border-left: 4px solid #17a2b8; }
+        .status-change { background-color: #d4edda; border: 1px solid #c3e6cb; padding: 10px; margin: 10px 0; border-radius: 4px; text-align: center; }
+        .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+        .btn { background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 10px 0; }
+        .status-new { color: #007bff; font-weight: bold; }
+        .status-in-progress { color: #ffc107; font-weight: bold; }
+        .status-on-hold { color: #6c757d; font-weight: bold; }
+        .status-closed { color: #28a745; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎓 School IT Helpdesk</h1>
+            <h2>Ticket Status Update</h2>
+        </div>
+        
+        <div class="content">
+            <p>Hello {{ ticket.user_name }},</p>
+            
+            <p>The status of your IT support ticket has been updated.</p>
+            
+            <div class="status-change">
+                <h3>Status Changed</h3>
+                <p>
+                    <span class="status-{{ old_status.lower().replace(' ', '-') }}">{{ old_status }}</span> 
+                    → 
+                    <span class="status-{{ ticket.status.lower().replace(' ', '-') }}">{{ ticket.status }}</span>
+                </p>
+            </div>
+            
+            <div class="ticket-info">
+                <h3>Ticket #{{ ticket.id }} Details</h3>
+                <p><strong>PC Location:</strong> {{ ticket.pc_location }}</p>
+                <p><strong>Current Status:</strong> <span class="status-{{ ticket.status.lower().replace(' ', '-') }}">{{ ticket.status }}</span></p>
+                <p><strong>Last Updated:</strong> {{ ticket.updated_at.strftime('%Y-%m-%d at %H:%M') }}</p>
+                
+                <h4>Original Problem:</h4>
+                <p style="background-color: #f8f9fa; padding: 10px; border-radius: 4px;">
+                    {{ ticket.problem_description }}
+                </p>
+            </div>
+            
+            {% if ticket.status == 'In Progress' %}
+                <p><strong>What this means:</strong> Our IT team is actively working on your issue. You may be contacted for additional information or to schedule a time for assistance.</p>
+            {% elif ticket.status == 'On Hold' %}
+                <p><strong>What this means:</strong> Your ticket is temporarily on hold. This usually means we're waiting for parts, software updates, or additional information. We'll contact you with updates.</p>
+            {% elif ticket.status == 'Closed' %}
+                <p><strong>What this means:</strong> Your IT issue has been resolved. If you continue to experience problems, please submit a new ticket.</p>
+                <p>Thank you for using the IT Helpdesk system!</p>
+            {% endif %}
+            
+            {% if ticket.notes %}
+                <div class="ticket-info">
+                    <h4>Latest Notes from IT Staff:</h4>
+                    <p style="background-color: #e9ecef; padding: 10px; border-radius: 4px; font-style: italic;">
+                        {{ ticket.notes.split('\n\n')[-1] if '\n\n' in ticket.notes else ticket.notes }}
+                    </p>
+                </div>
+            {% endif %}
+            
+            {% if ticket.status != 'Closed' %}
+                <p>If you have any questions about your ticket, please include your ticket number (#{{ ticket.id }}) when contacting us.</p>
+            {% endif %}
+        </div>
+        
+        <div class="footer">
+            <p>School IT Department<br>
+            📧 it-support@school.edu | 📞 (555) 123-4567<br>
+            Office Hours: Monday-Friday, 8:00 AM - 4:00 PM</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}IT Dashboard - School IT Helpdesk{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="dashboard-header">
+        <h2>IT Support Dashboard</h2>
+        <p>Welcome back, {{ session.username }}! Manage support tickets and assist users.</p>
+    </div>
+
+    <div class="dashboard-controls">
+        <div class="filters">
+            <label for="status-filter">Filter by Status:</label>
+            <select id="status-filter" onchange="filterTickets()">
+                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Tickets</option>
+                <option value="New" {% if status_filter == 'New' %}selected{% endif %}>New</option>
+                <option value="In Progress" {% if status_filter == 'In Progress' %}selected{% endif %}>In Progress</option>
+                <option value="On Hold" {% if status_filter == 'On Hold' %}selected{% endif %}>On Hold</option>
+                <option value="Closed" {% if status_filter == 'Closed' %}selected{% endif %}>Closed</option>
+            </select>
+
+            <label for="sort-filter">Sort by:</label>
+            <select id="sort-filter" onchange="sortTickets()">
+                <option value="created_at" {% if sort_by == 'created_at' %}selected{% endif %}>Date Created</option>
+                <option value="status" {% if sort_by == 'status' %}selected{% endif %}>Status</option>
+                <option value="location" {% if sort_by == 'location' %}selected{% endif %}>Location</option>
+            </select>
+        </div>
+
+        <div class="stats">
+            {% set new_count = tickets | selectattr('status', 'equalto', 'New') | list | length %}
+            {% set in_progress_count = tickets | selectattr('status', 'equalto', 'In Progress') | list | length %}
+            {% set total_count = tickets | length %}
+            
+            <div class="stat-item">
+                <span class="stat-number">{{ new_count }}</span>
+                <span class="stat-label">New</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number">{{ in_progress_count }}</span>
+                <span class="stat-label">In Progress</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number">{{ total_count }}</span>
+                <span class="stat-label">Total</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="tickets-container">
+        {% if tickets %}
+            <div class="tickets-grid">
+                {% for ticket in tickets %}
+                    <div class="ticket-card status-{{ ticket.status.lower().replace(' ', '-') }}">
+                        <div class="ticket-header">
+                            <div class="ticket-id">Ticket #{{ ticket.id }}</div>
+                            <div class="ticket-status status-{{ ticket.status.lower().replace(' ', '-') }}">
+                                {{ ticket.status }}
+                            </div>
+                        </div>
+                        
+                        <div class="ticket-info">
+                            <h3>{{ ticket.user_name }}</h3>
+                            <p class="location">📍 {{ ticket.pc_location }}</p>
+                            <p class="email">✉️ {{ ticket.user_email }}</p>
+                            <p class="description">{{ ticket.problem_description[:100] }}{% if ticket.problem_description|length > 100 %}...{% endif %}</p>
+                            
+                            {% if ticket.remote_access_requested %}
+                                <div class="remote-badge">
+                                    🖥️ Remote Access Requested
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="ticket-meta">
+                            <small class="created">Created: {{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                            {% if ticket.updated_at != ticket.created_at %}
+                                <small class="updated">Updated: {{ ticket.updated_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="ticket-actions">
+                            <a href="{{ url_for('view_ticket', ticket_id=ticket.id) }}" class="btn btn-secondary">View Details</a>
+                            {% if ticket.remote_access_requested and ticket.status != 'Closed' %}
+                                <a href="{{ url_for('remote_connect', ticket_id=ticket.id) }}" class="btn btn-remote">Start Remote Session</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <h3>No tickets found</h3>
+                <p>{% if status_filter != 'all' %}No tickets match the current filter.{% else %}No tickets have been submitted yet.{% endif %}</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function filterTickets() {
+    const status = document.getElementById('status-filter').value;
+    const sort = document.getElementById('sort-filter').value;
+    const url = new URL(window.location);
+    url.searchParams.set('status', status);
+    url.searchParams.set('sort', sort);
+    window.location = url;
+}
+
+function sortTickets() {
+    const status = document.getElementById('status-filter').value;
+    const sort = document.getElementById('sort-filter').value;
+    const url = new URL(window.location);
+    url.searchParams.set('status', status);
+    url.searchParams.set('sort', sort);
+    window.location = url;
+}
+</script>
+{% endblock %}

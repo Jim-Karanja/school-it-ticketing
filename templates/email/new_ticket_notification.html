@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>New IT Ticket</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #dc3545; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; background-color: #f8f9fa; }
+        .ticket-info { background-color: white; padding: 15px; margin: 15px 0; border-left: 4px solid #dc3545; }
+        .remote-alert { background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+        .btn { background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 10px 5px; }
+        .btn-remote { background-color: #28a745; }
+        .priority { color: #dc3545; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚨 New IT Support Ticket</h1>
+            <h2>Ticket #{{ ticket.id }}</h2>
+        </div>
+        
+        <div class="content">
+            <p>A new IT support ticket has been submitted and requires attention.</p>
+            
+            {% if ticket.remote_access_requested %}
+                <div class="remote-alert">
+                    <strong>⚠️ REMOTE ACCESS REQUESTED</strong><br>
+                    The user has authorized remote desktop access to help resolve this issue.
+                </div>
+            {% endif %}
+            
+            <div class="ticket-info">
+                <h3>Ticket Details</h3>
+                <p><strong>Ticket ID:</strong> #{{ ticket.id }}</p>
+                <p><strong>Submitted by:</strong> {{ ticket.user_name }}</p>
+                <p><strong>Email:</strong> <a href="mailto:{{ ticket.user_email }}">{{ ticket.user_email }}</a></p>
+                <p><strong>PC Location:</strong> {{ ticket.pc_location }}</p>
+                <p><strong>Remote Access:</strong> {% if ticket.remote_access_requested %}<span class="priority">YES - Authorized</span>{% else %}No{% endif %}</p>
+                <p><strong>Submitted:</strong> {{ ticket.created_at.strftime('%Y-%m-%d at %H:%M') }}</p>
+                <p><strong>Status:</strong> {{ ticket.status }}</p>
+                
+                <h4>Problem Description:</h4>
+                <p style="background-color: #f8f9fa; padding: 10px; border-radius: 4px;">
+                    {{ ticket.problem_description }}
+                </p>
+            </div>
+            
+            <div style="text-align: center; margin: 20px 0;">
+                <a href="http://localhost:5000/login" class="btn">Access Dashboard</a>
+                {% if ticket.remote_access_requested %}
+                    <a href="http://localhost:5000/remote_connect/{{ ticket.id }}" class="btn btn-remote">Remote Connect Instructions</a>
+                {% endif %}
+            </div>
+            
+            <p><strong>Next Steps:</strong></p>
+            <ol>
+                <li>Log in to the IT dashboard to view full ticket details</li>
+                <li>Update the ticket status to "In Progress" when you begin working on it</li>
+                {% if ticket.remote_access_requested %}
+                <li><span class="priority">Contact the user to coordinate remote access session</span></li>
+                {% endif %}
+                <li>Add notes documenting your troubleshooting steps</li>
+                <li>Update the user when the issue is resolved</li>
+            </ol>
+        </div>
+        
+        <div class="footer">
+            <p>School IT Helpdesk System<br>
+            This is an automated notification. Please do not reply to this email.</p>
+        </div>
+    </div>
+</body>
+</html>
