@@ -109,6 +109,4 @@ school-it-ticketing/
 ## Windows Service (Optional)
 - Use NSSM or a task scheduler to run the Flask app as a service on Windows.
 
-## License
-- Internal use for your school. Add your preferred license if distributing.
 
